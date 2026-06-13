@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>OpEx Tracker</title>
+  
+  <!-- iOS Web App Configurations -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="OpEx Tracker">
+  <meta name="theme-color" content="#112b3c">
+  
+  <!-- Embedded App Icon -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgZmlsbD0iIzExMmIzYyIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDE2LCAxNikgc2NhbGUoNCkiPjxwb2x5bGluZSBwb2ludHM9IjIzIDYgMTMuNSAxNS41IDguNSAxMC41IDEgMTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzRjYjlhZCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cG9seWxpbmUgcG9pbnRzPSIxNyA2IDIzIDYgMjMgMTIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzRjYjlhZCIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L2c+PC9zdmc+">
+
+  <style>
+    :root {
+      --bg: #f4f9f9; --primary: #112b3c; --accent: #4cb9ad; --accent-dark: #1f968b;
+      --accent-darker: #16606d; --card-bg: #ffffff; --text: #112b3c; --text-muted: #64748b;
+      --border: #c0deda; --danger: #ef4444; --danger-bg: #fef2f2; --danger-border: #fca5a5;
+    }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif; }
+    
+    body { 
+      margin: 0; 
+      background: var(--bg); 
+      color: var(--text); 
+      -webkit-tap-highlight-color: transparent; 
+      /* Ensures content doesn't get hidden behind home indicator or notch */
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+    
+    .container { max-width: 800px; margin: 0 auto; padding: 24px 16px 100px 16px; }
+    
+    /* Header */
+    .header { background: var(--primary); border-radius: 16px; padding: 20px; color: white; margin-bottom: 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); position: relative; overflow: hidden; }
+    .header-content { display: flex; align-items: flex-start; gap: 16px; position: relative; z-index: 10; }
+    .header-icon { background: rgba(255,255,255,0.1); padding: 12px; border-radius: 12px; color: var(--accent); border: 1px solid rgba(255,255,255,0.2); }
+    .header-text-container { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    #h-title, #h-sub { outline: none; border-bottom: 1px dashed transparent; transition: border 0.2s; padding-bottom: 2px; }
+    #h-title { margin: 0; font-size: 22px; font-weight: bold; }
+    #h-sub { margin: 0; color: #c0deda; font-size: 14px; font-weight: 500; }
+    #h-title:focus, #h-sub:focus { border-bottom-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.05); border-radius: 4px; }
+    
+    /* File & History Controls */
+    .file-controls { display: flex; gap: 8px; margin-top: 16px; position: relative; z-index: 10; flex-wrap: wrap; }
+    .btn-action { flex: 1; min-width: 100px; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: bold; text-align: center; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; }
+    .btn-backup { background: rgba(76,185,173,0.2); color: #4cb9ad; border: 1px solid rgba(76,185,173,0.3); }
+    .btn-load { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
+    .btn-history { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
+    
+    /* Progress */
+    .progress-wrapper { margin-top: 20px; position: relative; z-index: 10; }
+    .progress-text { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; margin-bottom: 8px; }
+    .progress-bar { width: 100%; background: var(--accent-darker); border-radius: 999px; height: 12px; border: 1px solid var(--primary); }
+    .progress-fill { background: var(--accent); height: 100%; border-radius: 999px; transition: width 0.4s ease; box-shadow: 0 0 10px rgba(76,185,173,0.5); }
+    
+    /* Capture Box */
+    .capture-box { background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border); border-top: 4px solid var(--accent-dark); box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-bottom: 24px; }
+    .capture-title { font-size: 14px; font-weight: bold; color: var(--accent-darker); text-transform: uppercase; margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; }
+    .capture-input { width: 100%; padding: 14px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 16px; outline: none; margin-bottom: 12px; }
+    .capture-input:focus { border-color: var(--accent-dark); box-shadow: 0 0 0 2px #e2f1f0; }
+    .triage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+    @media (max-width: 600px) { .triage-grid { grid-template-columns: 1fr; } }
+    .triage-col { background: var(--bg); padding: 8px; border-radius: 8px; border: 1px solid #e2f1f0; display: flex; flex-direction: column; }
+    @media (max-width: 600px) { .triage-col { flex-direction: row; align-items: center; justify-content: space-between; } }
+    .triage-label { font-size: 12px; font-weight: bold; color: var(--primary); margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
+    @media (max-width: 600px) { .triage-label { margin-bottom: 0; } }
+    
+    /* Button Groups */
+    .btn-group { display: flex; width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: white; }
+    @media (max-width: 600px) { .btn-group { width: auto; flex: 1; margin-left: 12px; } }
+    .btn-group button { flex: 1; padding: 12px 0; border: none; background: white; color: var(--text-muted); font-weight: bold; border-right: 1px solid #cbd5e1; cursor: pointer; transition: all 0.2s; }
+    @media (max-width: 600px) { .btn-group button { padding: 8px 0; } }
+    .btn-group button:last-child { border-right: none; }
+    .btn-group button.active-1 { background: #22c55e; color: white; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+    .btn-group button.active-2 { background: #facc15; color: #713f12; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+    .btn-group button.active-3 { background: #ef4444; color: white; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+    
+    .add-btn { width: 100%; padding: 14px; border: none; border-radius: 8px; background: var(--accent-darker); color: white; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s; }
+    .add-btn:hover:not(:disabled) { background: var(--accent-dark); }
+    .add-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+    
+    /* Controls & Search */
+    .controls { display: flex; flex-direction: column; gap: 12px; background: white; padding: 12px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px; position: sticky; top: 12px; z-index: 20; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .controls-top { display: flex; justify-content: space-between; align-items: center; }
+    .controls h3 { margin: 0; font-size: 14px; text-transform: uppercase; color: var(--primary); }
+    .search-input { flex: 1; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; }
+    .search-input:focus { border-color: var(--accent-dark); }
+    .sort-select { background: var(--bg); border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-weight: 600; font-size: 14px; outline: none; }
+    
+    /* Task Cards */
+    .task-card { background: white; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; border-left: 8px solid var(--accent-darker); margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s; cursor: pointer; user-select: none; -webkit-user-select: none; position: relative; }
+    .task-card:active { transform: scale(0.99); }
+    .task-card.completed { border-left-color: var(--accent); background: #f0f9f8; opacity: 0.8; }
+    .task-card.blocked { border-left-color: #f87171; background: var(--danger-bg); }
+    .task-top { display: flex; align-items: flex-start; gap: 12px; pointer-events: none; }
+    .interactive-elem { pointer-events: auto; }
+    
+    .check-btn { background: none; border: none; padding: 0; cursor: pointer; color: #cbd5e1; margin-top: 2px; }
+    .completed .check-btn { color: var(--accent); }
+    .task-title { flex: 1; font-size: 15px; font-weight: 600; margin: 0; line-height: 1.4; color: var(--primary); padding: 4px 0; word-break: break-word; }
+    .completed .task-title { text-decoration: line-through; color: var(--text-muted); }
+    
+    .effort-badge { display: inline-flex; align-items: center; justify-content: center; background: #e2f1f0; color: var(--accent-darker); font-size: 11px; font-weight: bold; padding: 4px 8px; border-radius: 12px; margin-left: 8px; white-space: nowrap; }
+    
+    .task-bottom { margin-top: 12px; margin-left: 36px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; pointer-events: none; }
+    @media (max-width: 600px) { .task-bottom { margin-left: 0; } }
+    .task-triage-mini { display: flex; gap: 12px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px solid #f1f5f9; flex: 1; pointer-events: none; }
+    @media (max-width: 600px) { .task-triage-mini { flex-direction: column; } }
+    .t-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: 1; }
+    .t-label { font-size: 11px; font-weight: bold; text-transform: uppercase; width: 65px; display: flex; align-items: center; gap: 4px; }
+    .t-val { font-size: 12px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+    .val-1 { background: #dcfce7; color: #166534; }
+    .val-2 { background: #fef08a; color: #713f12; }
+    .val-3 { background: #fee2e2; color: #991b1b; }
+    .block-btn { border: 1px solid #e2e8f0; background: white; color: var(--text-muted); font-weight: bold; font-size: 12px; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; pointer-events: auto; }
+    .blocked .block-btn { background: #fecaca; color: #b91c1c; border-color: #fca5a5; }
+    
+    /* Notes System */
+    .notes-toggle { font-size: 13px; font-weight: 600; color: var(--accent-dark); background: none; border: none; padding: 8px 0; cursor: pointer; display: flex; align-items: center; gap: 6px; pointer-events: auto; margin-top: 8px; margin-left: 36px; }
+    @media (max-width: 600px) { .notes-toggle { margin-left: 0; } }
+    .notes-area { margin-left: 36px; margin-top: 8px; display: none; pointer-events: auto; }
+    @media (max-width: 600px) { .notes-area { margin-left: 0; } }
+    .notes-area.expanded { display: block; }
+    .notes-textarea-inline { width: 100%; min-height: 80px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; resize: vertical; outline: none; background: #f8fafc; }
+    .notes-textarea-inline:focus { border-color: var(--accent-dark); background: white; }
+    
+    /* Completed Section */
+    .completed-date { font-size: 12px; color: var(--text-muted); font-weight: bold; display: block; margin-top: 8px; margin-left: 36px; }
+    @media (max-width: 600px) { .completed-date { margin-left: 0; } }
+    
+    .section-divider { display: flex; align-items: center; gap: 16px; margin: 32px 0 16px 0; }
+    .section-divider::before, .section-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .section-divider span { font-size: 13px; font-weight: bold; color: var(--accent-darker); text-transform: uppercase; }
+    .clear-btn { display: flex; margin: 0 auto; background: white; border: 1px solid #fca5a5; color: #dc2626; padding: 10px 16px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; gap: 8px; margin-top: 24px; }
+    .clear-btn:hover { background: #fef2f2; }
+
+    /* Modals */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 43, 60, 0.6); z-index: 100; display: none; align-items: center; justify-content: center; padding: 16px; backdrop-filter: blur(2px); }
+    .modal-overlay.active { display: flex; }
+    .modal-content { background: white; border-radius: 16px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; padding: 24px; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+    .modal-title { font-size: 18px; font-weight: bold; color: var(--primary); margin: 0 0 16px 0; }
+    
+    .editor-group { margin-bottom: 16px; }
+    .editor-label { display: block; font-size: 13px; font-weight: bold; color: var(--text-muted); margin-bottom: 8px; }
+    .editor-input, .editor-textarea { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; outline: none; }
+    .editor-textarea { min-height: 100px; resize: vertical; }
+    .editor-input:focus, .editor-textarea:focus { border-color: var(--accent-dark); }
+    
+    .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+    .btn-modal { padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; font-size: 14px; }
+    .btn-cancel { background: #f1f5f9; color: var(--text-muted); }
+    .btn-save { background: var(--accent-darker); color: white; }
+    
+    .blocked-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; margin-top: 16px; }
+    .blocked-toggle input { width: 18px; height: 18px; cursor: pointer; }
+    .blocked-toggle span { font-weight: bold; color: var(--danger); }
+
+    /* History List */
+    .history-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+    .history-item { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .history-info strong { display: block; color: var(--primary); margin-bottom: 4px; }
+    .history-info span { font-size: 12px; color: var(--text-muted); }
+    .btn-restore { background: var(--accent); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; }
+
+    /* Context Menu */
+    .context-menu { position: fixed; background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 200px; z-index: 200; display: none; flex-direction: column; overflow: hidden; border: 1px solid #e2e8f0; }
+    .context-menu.active { display: flex; }
+    .context-item { padding: 14px 16px; font-size: 14px; font-weight: 600; color: var(--primary); cursor: pointer; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #f1f5f9; background: none; border-left: none; border-right: none; border-top: none; width: 100%; text-align: left; }
+    .context-item:last-child { border-bottom: none; }
+    .context-item:hover { background: #f8fafc; }
+    .context-item.danger { color: var(--danger); }
+
+    /* Toast Notification */
+    .toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #334155; color: white; padding: 14px 20px; border-radius: 12px; display: flex; align-items: center; gap: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); z-index: 300; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .toast-container.show { opacity: 1; pointer-events: auto; }
+    .toast-msg { font-size: 14px; font-weight: 600; }
+    .toast-undo { background: transparent; color: #cbd5e1; border: 1px solid #64748b; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; }
+    .toast-undo:hover { background: rgba(255,255,255,0.1); color: white; }
+
+  </style>
+</head>
+<body>
+<div class="container">
+  <header class="header" role="banner">
+    <div class="header-content">
+      <div class="header-icon" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      </div>
+      <div class="header-text-container">
+        <h1 id="h-title" contenteditable="true" spellcheck="false" title="Tap to edit title" aria-label="Project Title">Operational Excellence</h1>
+        <p id="h-sub" contenteditable="true" spellcheck="false" title="Tap to edit subtitle" aria-label="Project Subtitle">OpEx Staircase - Go / No-Go Checklist</p>
+      </div>
+    </div>
+    <div class="file-controls">
+      <button class="btn-action btn-history" id="btn-history" aria-label="View History">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        History
+      </button>
+      <label class="btn-action btn-load" aria-label="Load Backup">
+        📂 Load
+        <input type="file" accept="application/json,.json" id="import-file" style="display:none;">
+      </label>
+      <button class="btn-action btn-backup" id="export-btn" aria-label="Save Backup">💾 Save</button>
+    </div>
+    <div class="progress-wrapper">
+      <div class="progress-text">
+        <span>Overall Progress</span>
+        <span id="prog-text">0% (0/0)</span>
+      </div>
+      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-fill" id="prog-fill" style="width: 0%"></div>
+      </div>
+    </div>
+  </header>
+
+  <section class="capture-box" aria-labelledby="capture-heading">
+    <h2 class="capture-title" id="capture-heading">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Capture Action Item
+    </h2>
+    <input type="text" id="task-input" class="capture-input" placeholder="What needs to be done?" aria-label="New Task Title">
+    
+    <div class="triage-grid">
+      <div class="triage-col">
+        <div class="triage-label">Duration</div>
+        <div class="btn-group" id="capture-duration" role="group" aria-label="Duration Selection">
+          <button data-val="1" aria-pressed="false">Low</button>
+          <button data-val="2" aria-pressed="false">Med</button>
+          <button data-val="3" aria-pressed="false">High</button>
+        </div>
+      </div>
+      <div class="triage-col">
+        <div class="triage-label">Workload</div>
+        <div class="btn-group" id="capture-workload" role="group" aria-label="Workload Selection">
+          <button data-val="1" aria-pressed="false">Low</button>
+          <button data-val="2" aria-pressed="false">Med</button>
+          <button data-val="3" aria-pressed="false">High</button>
+        </div>
+      </div>
+      <div class="triage-col">
+        <div class="triage-label">Priority</div>
+        <div class="btn-group" id="capture-priority" role="group" aria-label="Priority Selection">
+          <button data-val="1" aria-pressed="false">Low</button>
+          <button data-val="2" aria-pressed="false">Med</button>
+          <button data-val="3" aria-pressed="false">High</button>
+        </div>
+      </div>
+    </div>
+    <button class="add-btn" id="add-btn" disabled aria-label="Add Action Item">
+      Add Action Item
+    </button>
+  </section>
+
+  <div class="controls">
+    <div class="controls-top">
+      <h3>Action Items</h3>
+      <select class="sort-select" id="sort-select" aria-label="Sort Actions">
+        <option value="easy">Easy Wins (Priority, then low Effort)</option>
+        <option value="hard">Hard Wins (Priority, then high Effort)</option>
+      </select>
+    </div>
+    <input type="text" id="search-input" class="search-input" placeholder="Search tasks or notes..." aria-label="Search Tasks">
+  </div>
+
+  <main id="active-tasks" role="list" aria-label="Active Tasks"></main>
+
+  <section id="completed-section" style="display: none;" aria-labelledby="completed-heading">
+    <div class="section-divider">
+      <span id="completed-heading">Completed</span>
+    </div>
+    <div id="completed-tasks" role="list" aria-label="Completed Tasks"></div>
+    <button class="clear-btn" id="clear-btn" aria-label="Clear Completed Actions">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+      Clear Completed Actions
+    </button>
+  </section>
+</div>
+
+<!-- Task Editor Modal -->
+<div class="modal-overlay" id="editor-modal" role="dialog" aria-labelledby="editor-title" aria-modal="true">
+  <div class="modal-content">
+    <h2 class="modal-title" id="editor-title">Edit Action Item</h2>
+    
+    <div class="editor-group">
+      <label class="editor-label" for="edit-title">Title</label>
+      <input type="text" id="edit-title" class="editor-input">
+    </div>
+    
+    <div class="editor-group">
+      <label class="editor-label" for="edit-notes">Notes</label>
+      <textarea id="edit-notes" class="editor-textarea" placeholder="Add additional details..."></textarea>
+    </div>
+    
+    <div class="triage-grid">
+      <div class="triage-col">
+        <div class="triage-label">Duration</div>
+        <div class="btn-group" id="edit-duration">
+          <button data-val="1">Low</button>
+          <button data-val="2">Med</button>
+          <button data-val="3">High</button>
+        </div>
+      </div>
+      <div class="triage-col">
+        <div class="triage-label">Workload</div>
+        <div class="btn-group" id="edit-workload">
+          <button data-val="1">Low</button>
+          <button data-val="2">Med</button>
+          <button data-val="3">High</button>
+        </div>
+      </div>
+      <div class="triage-col">
+        <div class="triage-label">Priority</div>
+        <div class="btn-group" id="edit-priority">
+          <button data-val="1">Low</button>
+          <button data-val="2">Med</button>
+          <button data-val="3">High</button>
+        </div>
+      </div>
+    </div>
+    
+    <label class="blocked-toggle">
+      <input type="checkbox" id="edit-blocked">
+      <span>Task is Blocked</span>
+    </label>
+
+    <div class="modal-actions">
+      <button class="btn-modal btn-cancel" id="editor-cancel">Cancel</button>
+      <button class="btn-modal btn-save" id="editor-save">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal-overlay" id="history-modal" role="dialog" aria-labelledby="history-title" aria-modal="true">
+  <div class="modal-content">
+    <h2 class="modal-title" id="history-title">Snapshot History</h2>
+    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Restoring will overwrite current state. A new snapshot will be created before restoring.</p>
+    <ul class="history-list" id="history-list"></ul>
+    <div class="modal-actions">
+      <button class="btn-modal btn-cancel" id="history-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Context Menu -->
+<div class="context-menu" id="context-menu" role="menu">
+  <button class="context-item" id="ctx-edit" role="menuitem">✏️ Edit</button>
+  <button class="context-item" id="ctx-duplicate" role="menuitem">📋 Duplicate</button>
+  <button class="context-item" id="ctx-block" role="menuitem">🚫 Toggle Block</button>
+  <button class="context-item" id="ctx-complete" role="menuitem">✅ Toggle Complete</button>
+  <button class="context-item danger" id="ctx-delete" role="menuitem">🗑️ Delete</button>
+</div>
+
+<!-- Toast for Undo -->
+<div class="toast-container" id="toast" role="alert" aria-live="assertive">
+  <span class="toast-msg">Task deleted</span>
+  <button class="toast-undo" id="toast-undo">Undo</button>
+</div>
+
+<script>
+  // Safe Storage Wrapper (Remains for safety, but Add to Home Screen enables full storage)
+  const storage = {
+    _memData: {},
+    getItem(key) {
+      try {
+        return window.localStorage.getItem(key);
+      } catch (e) {
+        return this._memData[key] || null;
+      }
+    },
+    setItem(key, value) {
+      try {
+        window.localStorage.setItem(key, value);
+      } catch (e) {
+        this._memData[key] = String(value);
+      }
+    }
+  };
+
+  // Utility Functions
+  function generateUUID() {
+    if (crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+
+  function formatDate(ms) {
+    if (!ms) return '';
+    const d = new Date(ms);
+    return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
+  }
+
+  function formatDateTime(ms) {
+    if (!ms) return '';
+    const d = new Date(ms);
+    return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
+  }
+
+  // Central State
+  const state = {
+    tasks: [],
+    capture: { duration: null, workload: null, priority: null },
+    editor: { id: null, duration: 2, workload: 2, priority: 2 },
+    expandedNotes: new Set(),
+    search: '',
+    deletedTaskRef: null,
+    undoTimer: null,
+    ctxTargetId: null
+  };
+
+  // DOM Elements
+  const DOM = {
+    hTitle: document.getElementById('h-title'),
+    hSub: document.getElementById('h-sub'),
+    taskInput: document.getElementById('task-input'),
+    addBtn: document.getElementById('add-btn'),
+    activeContainer: document.getElementById('active-tasks'),
+    completedContainer: document.getElementById('completed-tasks'),
+    completedSection: document.getElementById('completed-section'),
+    progFill: document.getElementById('prog-fill'),
+    progText: document.getElementById('prog-text'),
+    sortSelect: document.getElementById('sort-select'),
+    searchInput: document.getElementById('search-input'),
+    toast: document.getElementById('toast'),
+    toastUndo: document.getElementById('toast-undo'),
+    contextMenu: document.getElementById('context-menu'),
+    
+    // Modals
+    editorModal: document.getElementById('editor-modal'),
+    editTitle: document.getElementById('edit-title'),
+    editNotes: document.getElementById('edit-notes'),
+    editBlocked: document.getElementById('edit-blocked'),
+    historyModal: document.getElementById('history-modal'),
+    historyList: document.getElementById('history-list')
+  };
+
+  // Initialisation & Migration
+  function init() {
+    DOM.hTitle.textContent = storage.getItem('opex_title') || 'Operational Excellence';
+    DOM.hSub.textContent = storage.getItem('opex_sub') || 'OpEx Staircase - Go / No-Go Checklist';
+
+    let loaded = JSON.parse(storage.getItem('opex_tasks') || '[]');
+    state.tasks = loaded.map(t => {
+      const duration = t.duration || t.impact || 2;
+      const workload = t.workload || t.effort || 2;
+      return {
+        id: t.id || generateUUID(),
+        title: t.title || 'Untitled',
+        notes: t.notes || '',
+        duration: duration,
+        workload: workload,
+        priority: t.priority || t.urgency || 2,
+        effort: duration + workload,
+        blocked: t.blocked || false,
+        completed: t.completed || false,
+        createdAt: t.createdAt || t.timestamp || Date.now(),
+        updatedAt: t.updatedAt || Date.now(),
+        completedAt: t.completedAt || null,
+        order: t.order || 0
+      };
+    });
+
+    setupEventListeners();
+    renderTasks();
+  }
+
+  // Snapshot Management
+  function createSnapshot() {
+    const snapshot = {
+      version: 2,
+      title: DOM.hTitle.textContent,
+      subtitle: DOM.hSub.textContent,
+      tasks: JSON.parse(JSON.stringify(state.tasks)),
+      timestamp: Date.now()
+    };
+    let history = JSON.parse(storage.getItem('opex_history') || '[]');
+    history.unshift(snapshot);
+    if (history.length > 10) history = history.slice(0, 10);
+    storage.setItem('opex_history', JSON.stringify(history));
+  }
+
+  function restoreSnapshot(index) {
+    if (!confirm('Are you sure you want to restore this version? Current unsaved changes will be lost.')) return;
+    createSnapshot(); // Backup current state before restoring
+    
+    let history = JSON.parse(storage.getItem('opex_history') || '[]');
+    const target = history[index];
+    if (target && target.tasks) {
+      state.tasks = target.tasks;
+      if (target.title) DOM.hTitle.textContent = target.title;
+      if (target.subtitle) DOM.hSub.textContent = target.subtitle;
+      saveState();
+      renderTasks();
+      closeModals();
+    }
+  }
+
+  function saveState() {
+    storage.setItem('opex_title', DOM.hTitle.textContent);
+    storage.setItem('opex_sub', DOM.hSub.textContent);
+    storage.setItem('opex_tasks', JSON.stringify(state.tasks));
+  }
+
+  // Core Render Logic
+  function renderTasks() {
+    DOM.activeContainer.innerHTML = '';
+    DOM.completedContainer.innerHTML = '';
+    
+    const term = state.search.toLowerCase();
+    const isMatch = (t) => t.title.toLowerCase().includes(term) || (t.notes && t.notes.toLowerCase().includes(term));
+    
+    let activeTasks = state.tasks.filter(t => !t.completed && isMatch(t));
+    let completedTasks = state.tasks.filter(t => t.completed && isMatch(t));
+    
+    const sortVal = DOM.sortSelect.value;
+    activeTasks.sort((a, b) => {
+      if (a.blocked !== b.blocked) return a.blocked ? 1 : -1;
+      if (sortVal === 'easy') {
+        return (b.priority - a.priority) || (a.effort - b.effort);
+      } else {
+        return (b.priority - a.priority) || (b.effort - a.effort);
+      }
+    });
+
+    completedTasks.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+
+    activeTasks.forEach(t => DOM.activeContainer.appendChild(createTaskCard(t)));
+    completedTasks.forEach(t => DOM.completedContainer.appendChild(createTaskCard(t)));
+    
+    DOM.completedSection.style.display = completedTasks.length ? 'block' : 'none';
+
+    // Update Progress
+    const total = state.tasks.length;
+    const completed = state.tasks.filter(t => t.completed).length;
+    const pct = total === 0 ? 0 : Math.round((completed / total) * 100);
+    DOM.progFill.style.width = `${pct}%`;
+    DOM.progText.textContent = `${pct}% (${completed}/${total})`;
+    DOM.progText.setAttribute('aria-label', `Progress: ${pct}%`);
+  }
+
+  function getLabel(val) {
+    return val === 1 ? 'Low' : val === 2 ? 'Med' : 'High';
+  }
+
+  function createTaskCard(task) {
+    const isExpanded = state.expandedNotes.has(task.id);
+    
+    const card = document.createElement('div');
+    card.className = `task-card ${task.completed ? 'completed' : ''} ${task.blocked ? 'blocked' : ''}`;
+    card.dataset.id = task.id;
+    card.setAttribute('role', 'listitem');
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('aria-label', `Task: ${escapeHTML(task.title)}`);
+
+    let html = `
+      <div class="task-top">
+        <button class="check-btn interactive-elem" data-action="toggle-complete" aria-label="${task.completed ? 'Mark incomplete' : 'Mark complete'}">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            ${task.completed ? '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>' : '<circle cx="12" cy="12" r="10"></circle>'}
+          </svg>
+        </button>
+        <h4 class="task-title">${escapeHTML(task.title)} <span class="effort-badge">Effort: ${task.effort}</span></h4>
+      </div>
+    `;
+
+    if (task.notes) {
+      html += `
+        <button class="notes-toggle interactive-elem" data-action="toggle-notes">
+          ${isExpanded ? '▼' : '▶'} Notes
+        </button>
+        <div class="notes-area ${isExpanded ? 'expanded' : ''}">
+          <textarea class="notes-textarea-inline interactive-elem" data-action="update-notes" placeholder="Notes...">${escapeHTML(task.notes)}</textarea>
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="task-bottom">
+        <div class="task-triage-mini">
+          <div class="t-row"><span class="t-label">Dur</span><span class="t-val val-${task.duration}">${getLabel(task.duration)}</span></div>
+          <div class="t-row"><span class="t-label">Work</span><span class="t-val val-${task.workload}">${getLabel(task.workload)}</span></div>
+          <div class="t-row"><span class="t-label">Prio</span><span class="t-val val-${task.priority}">${getLabel(task.priority)}</span></div>
+        </div>
+        ${!task.completed ? `
+        <button class="block-btn interactive-elem" data-action="toggle-block">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+          ${task.blocked ? 'Blocked' : 'Block'}
+        </button>` : ''}
+      </div>
+    `;
+
+    if (task.completed && task.completedAt) {
+      html += `<span class="completed-date">Completed: ${formatDate(task.completedAt)}</span>`;
+    }
+
+    card.innerHTML = html;
+
+    // Interactions Setup
+    let longPressTimer;
+    const startLongPress = (e) => {
+      if(e.target.closest('.interactive-elem')) return; // Ignore long press on buttons
+      longPressTimer = setTimeout(() => {
+        showContextMenu(task.id, e);
+      }, 600);
+    };
+    const cancelLongPress = () => clearTimeout(longPressTimer);
+
+    card.addEventListener('touchstart', startLongPress, {passive: true});
+    card.addEventListener('touchend', cancelLongPress);
+    card.addEventListener('touchmove', cancelLongPress);
+    card.addEventListener('mousedown', startLongPress);
+    card.addEventListener('mouseup', cancelLongPress);
+    card.addEventListener('mouseleave', cancelLongPress);
+
+    card.addEventListener('click', (e) => {
+      const actionBtn = e.target.closest('.interactive-elem');
+      if (actionBtn) {
+        e.stopPropagation();
+        handleCardAction(task.id, actionBtn);
+        return;
+      }
+      openEditor(task.id);
+    });
+    
+    // Auto-save notes
+    const inlineNotes = card.querySelector('.notes-textarea-inline');
+    if(inlineNotes) {
+      inlineNotes.addEventListener('input', debounce((e) => {
+        const t = state.tasks.find(x => x.id === task.id);
+        if(t) { t.notes = e.target.value; saveState(); }
+      }, 500));
+    }
+
+    return card;
+  }
+
+  function handleCardAction(id, elem) {
+    const action = elem.dataset.action;
+    const task = state.tasks.find(t => t.id === id);
+    if (!task) return;
+
+    if (action === 'toggle-complete') {
+      task.completed = !task.completed;
+      task.completedAt = task.completed ? Date.now() : null;
+      createSnapshot();
+      saveState();
+      renderTasks();
+    } else if (action === 'toggle-block') {
+      task.blocked = !task.blocked;
+      createSnapshot();
+      saveState();
+      renderTasks();
+    } else if (action === 'toggle-notes') {
+      if (state.expandedNotes.has(id)) state.expandedNotes.delete(id);
+      else state.expandedNotes.add(id);
+      renderTasks(); // Quick re-render to toggle display
+    }
+  }
+
+  // Group Button Selection Logic
+  function setupGroupSelection(context, groupIds) {
+    groupIds.forEach(type => {
+      const group = document.getElementById(`${context}-${type}`);
+      if(!group) return;
+      group.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'BUTTON') return;
+        
+        group.querySelectorAll('button').forEach(b => {
+            b.className = '';
+            b.setAttribute('aria-pressed', 'false');
+        });
+        
+        const val = parseInt(e.target.dataset.val);
+        e.target.classList.add(`active-${val}`);
+        e.target.setAttribute('aria-pressed', 'true');
+        
+        state[context][type] = val;
+        
+        if (context === 'capture') validateCapture();
+      });
+    });
+  }
+
+  function validateCapture() {
+    const hasText = DOM.taskInput.value.trim().length > 0;
+    const hasVals = state.capture.duration !== null && state.capture.workload !== null && state.capture.priority !== null;
+    DOM.addBtn.disabled = !(hasText && hasVals);
+  }
+
+  function resetCaptureUI() {
+    DOM.taskInput.value = '';
+    state.capture = { duration: null, workload: null, priority: null };
+    ['duration', 'workload', 'priority'].forEach(type => {
+      document.querySelectorAll(`#capture-${type} button`).forEach(b => {
+          b.className = '';
+          b.setAttribute('aria-pressed', 'false');
+      });
+    });
+    validateCapture();
+  }
+
+  // Event Listeners Setup
+  function setupEventListeners() {
+    // Header Auto-save
+    const saveHeader = debounce(() => saveState(), 300);
+    DOM.hTitle.addEventListener('input', saveHeader);
+    DOM.hSub.addEventListener('input', saveHeader);
+
+    // Capture
+    setupGroupSelection('capture', ['duration', 'workload', 'priority']);
+    DOM.taskInput.addEventListener('input', validateCapture);
+    DOM.taskInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !DOM.addBtn.disabled) {
+        e.preventDefault();
+        DOM.addBtn.click();
+      }
+    });
+
+    DOM.addBtn.addEventListener('click', () => {
+      const newTask = {
+        id: generateUUID(),
+        title: DOM.taskInput.value.trim(),
+        notes: '',
+        duration: state.capture.duration,
+        workload: state.capture.workload,
+        priority: state.capture.priority,
+        effort: state.capture.duration + state.capture.workload,
+        blocked: false,
+        completed: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        completedAt: null,
+        order: state.tasks.length
+      };
+      state.tasks.push(newTask);
+      createSnapshot();
+      saveState();
+      resetCaptureUI();
+      renderTasks();
+    });
+
+    // Search & Sort
+    DOM.searchInput.addEventListener('input', debounce((e) => {
+      state.search = e.target.value;
+      renderTasks();
+    }, 200));
+    DOM.sortSelect.addEventListener('change', renderTasks);
+
+    // Editor Modal
+    setupGroupSelection('editor', ['duration', 'workload', 'priority']);
+    document.getElementById('editor-cancel').addEventListener('click', closeModals);
+    document.getElementById('editor-save').addEventListener('click', () => {
+      const task = state.tasks.find(t => t.id === state.editor.id);
+      if (task) {
+        task.title = DOM.editTitle.value.trim() || 'Untitled';
+        task.notes = DOM.editNotes.value;
+        task.duration = state.editor.duration;
+        task.workload = state.editor.workload;
+        task.priority = state.editor.priority;
+        task.effort = task.duration + task.workload;
+        task.blocked = DOM.editBlocked.checked;
+        task.updatedAt = Date.now();
+        createSnapshot();
+        saveState();
+        renderTasks();
+      }
+      closeModals();
+    });
+
+    // Clear Completed
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      if(confirm('Are you sure you want to clear all completed actions?')) {
+        state.tasks = state.tasks.filter(t => !t.completed);
+        createSnapshot();
+        saveState();
+        renderTasks();
+      }
+    });
+
+    // Global Clicks (Close Context Menu)
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.context-menu') && DOM.contextMenu.classList.contains('active')) {
+        closeContextMenu();
+      }
+    });
+    
+    // Context Menu Actions
+    document.getElementById('ctx-edit').addEventListener('click', () => {
+      openEditor(state.ctxTargetId);
+      closeContextMenu();
+    });
+    document.getElementById('ctx-duplicate').addEventListener('click', () => {
+      const source = state.tasks.find(t => t.id === state.ctxTargetId);
+      if(source) {
+        const dup = {...source, id: generateUUID(), title: source.title + ' (Copy)', createdAt: Date.now(), completed: false, completedAt: null};
+        state.tasks.push(dup);
+        createSnapshot();
+        saveState();
+        renderTasks();
+      }
+      closeContextMenu();
+    });
+    document.getElementById('ctx-block').addEventListener('click', () => {
+      const task = state.tasks.find(t => t.id === state.ctxTargetId);
+      if(task) {
+        task.blocked = !task.blocked;
+        createSnapshot();
+        saveState();
+        renderTasks();
+      }
+      closeContextMenu();
+    });
+    document.getElementById('ctx-complete').addEventListener('click', () => {
+      const task = state.tasks.find(t => t.id === state.ctxTargetId);
+      if(task) {
+        task.completed = !task.completed;
+        task.completedAt = task.completed ? Date.now() : null;
+        createSnapshot();
+        saveState();
+        renderTasks();
+      }
+      closeContextMenu();
+    });
+    document.getElementById('ctx-delete').addEventListener('click', () => {
+      deleteTaskWithUndo(state.ctxTargetId);
+      closeContextMenu();
+    });
+
+    // Toast Undo
+    DOM.toastUndo.addEventListener('click', () => {
+      if(state.deletedTaskRef) {
+        state.tasks.push(state.deletedTaskRef);
+        state.deletedTaskRef = null;
+        clearTimeout(state.undoTimer);
+        DOM.toast.classList.remove('show');
+        saveState();
+        renderTasks();
+      }
+    });
+
+    // History
+    document.getElementById('btn-history').addEventListener('click', showHistory);
+    document.getElementById('history-close').addEventListener('click', closeModals);
+
+    // Backup & Restore
+    document.getElementById('export-btn').addEventListener('click', () => {
+      const backupData = {
+        version: 2,
+        title: DOM.hTitle.textContent,
+        subtitle: DOM.hSub.textContent,
+        tasks: state.tasks,
+        exportedAt: Date.now()
+      };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const a = document.createElement('a');
+      a.href = dataStr;
+      a.download = `opex_backup_${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+
+    document.getElementById('import-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          let importedTasks = imported.tasks || imported; // handle v1 array-only format
+          if (!Array.isArray(importedTasks)) throw new Error("Tasks must be an array");
+          
+          createSnapshot(); // Before changing state
+          
+          state.tasks = importedTasks.map(t => ({
+             ...t,
+             id: t.id || generateUUID(),
+             effort: t.effort || ((t.duration || t.impact || 2) + (t.workload || t.effort || 2))
+          }));
+          
+          if(imported.title) DOM.hTitle.textContent = imported.title;
+          if(imported.subtitle) DOM.hSub.textContent = imported.subtitle;
+          
+          saveState();
+          createSnapshot(); // After successful import
+          renderTasks();
+          alert('Backup successfully loaded!');
+        } catch (err) {
+          alert('Invalid backup format. State not changed.');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = ''; 
+    });
+  }
+
+  // Modals & Popovers Management
+  function openEditor(taskId) {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    state.editor.id = taskId;
+    DOM.editTitle.value = task.title;
+    DOM.editNotes.value = task.notes || '';
+    DOM.editBlocked.checked = task.blocked;
+
+    ['duration', 'workload', 'priority'].forEach(type => {
+      const val = task[type];
+      state.editor[type] = val;
+      const group = document.getElementById(`edit-${type}`);
+      group.querySelectorAll('button').forEach(b => {
+        b.className = '';
+        b.setAttribute('aria-pressed', 'false');
+      });
+      const activeBtn = group.querySelector(`button[data-val="${val}"]`);
+      if(activeBtn) {
+        activeBtn.classList.add(`active-${val}`);
+        activeBtn.setAttribute('aria-pressed', 'true');
+      }
+    });
+
+    DOM.editorModal.classList.add('active');
+  }
+
+  function showHistory() {
+    const history = JSON.parse(storage.getItem('opex_history') || '[]');
+    DOM.historyList.innerHTML = '';
+    
+    if (history.length === 0) {
+      DOM.historyList.innerHTML = '<p style="color: var(--text-muted); font-size:14px;">No history snapshots available.</p>';
+    } else {
+      history.forEach((snap, idx) => {
+        const li = document.createElement('li');
+        li.className = 'history-item';
+        li.innerHTML = `
+          <div class="history-info">
+            <strong>${escapeHTML(snap.title || 'Snapshot')}</strong>
+            <span>${formatDateTime(snap.timestamp)} - ${snap.tasks.length} tasks</span>
+          </div>
+          <button class="btn-restore" onclick="restoreSnapshot(${idx})">Restore</button>
+        `;
+        DOM.historyList.appendChild(li);
+      });
+    }
+    DOM.historyModal.classList.add('active');
+  }
+
+  function closeModals() {
+    DOM.editorModal.classList.remove('active');
+    DOM.historyModal.classList.remove('active');
+  }
+
+  function showContextMenu(id, event) {
+    state.ctxTargetId = id;
+    
+    // Position menu near touch/click or fallback to center
+    let x = event.clientX || (event.touches && event.touches[0].clientX) || window.innerWidth/2;
+    let y = event.clientY || (event.touches && event.touches[0].clientY) || window.innerHeight/2;
+    
+    DOM.contextMenu.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
+    DOM.contextMenu.style.top = `${Math.min(y, window.innerHeight - 250)}px`;
+    DOM.contextMenu.classList.add('active');
+  }
+
+  function closeContextMenu() {
+    DOM.contextMenu.classList.remove('active');
+    state.ctxTargetId = null;
+  }
+
+  function deleteTaskWithUndo(id) {
+    const index = state.tasks.findIndex(t => t.id === id);
+    if (index === -1) return;
+    
+    state.deletedTaskRef = state.tasks.splice(index, 1)[0];
+    createSnapshot();
+    saveState();
+    renderTasks();
+    
+    DOM.toast.classList.add('show');
+    clearTimeout(state.undoTimer);
+    state.undoTimer = setTimeout(() => {
+      DOM.toast.classList.remove('show');
+      state.deletedTaskRef = null;
+    }, 5000);
+  }
+
+  // Make functions available to inline handlers (only where absolutely necessary)
+  window.restoreSnapshot = restoreSnapshot;
+
+  // Boot
+  document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
+
+
+
