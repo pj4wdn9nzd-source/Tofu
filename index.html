@@ -445,6 +445,17 @@
   </div>
 </div>
 
+<!-- Confirm Modal (in-page, since native confirm() is blocked in some views) -->
+<div class="modal-overlay" id="confirm-modal" role="alertdialog" aria-labelledby="confirm-msg" aria-modal="true">
+  <div class="modal-content" style="max-width: 380px;">
+    <p class="modal-title" id="confirm-msg" style="font-size: 16px;"></p>
+    <div class="modal-actions">
+      <button class="btn-modal btn-cancel" id="confirm-cancel">Cancel</button>
+      <button class="btn-modal btn-save" id="confirm-ok">OK</button>
+    </div>
+  </div>
+</div>
+
 <!-- Context Menu -->
 <div class="context-menu" id="context-menu" role="menu">
   <button class="context-item" id="ctx-edit" role="menuitem">✏️ Edit</button>
@@ -486,7 +497,7 @@
         this._memData[key] = String(value);
         if (!this._warned) {
           this._warned = true;
-          alert('⚠️ Your changes could not be saved on this device (storage is full or blocked). They will be lost when the app closes. Tap 💾 Save to download a backup now.');
+          setTimeout(() => showToast('⚠️ Changes can\'t be saved on this device and will be lost when the app closes.', 'Save backup', () => { hideToast(); exportBackup(); }, 15000));
         }
         return false;
       }
@@ -575,7 +586,8 @@
     toastTimer: null,
     ctxTargetId: null,
     ctxOpenedAt: 0,
-    sessionSnapshotTaken: false
+    sessionSnapshotTaken: false,
+    confirmResolve: null
   };
 
   // DOM Elements
@@ -696,8 +708,8 @@
     renderTasks();
   }
 
-  function restoreSnapshot(index) {
-    if (!confirm('Restore this version? A snapshot of the current state will be saved first.')) return;
+  async function restoreSnapshot(index) {
+    if (!await confirmDialog('Restore this version? A snapshot of the current state is saved first.', 'Restore')) return;
     const history = readJSON('opex_history', []);
     const target = history[index];
     if (!target || !Array.isArray(target.tasks)) return;
@@ -1180,7 +1192,9 @@
     });
 
     // Close modals by tapping the backdrop or pressing Escape
-    [DOM.editorModal, DOM.historyModal].forEach(m => m.addEventListener('click', (e) => {
+    document.getElementById('confirm-ok').addEventListener('click', () => state.confirmResolve && state.confirmResolve(true));
+    document.getElementById('confirm-cancel').addEventListener('click', () => state.confirmResolve && state.confirmResolve(false));
+    [DOM.editorModal, DOM.historyModal, document.getElementById('confirm-modal')].forEach(m => m.addEventListener('click', (e) => {
       if (e.target === m) closeModals();
     }));
     document.addEventListener('keydown', (e) => {
@@ -1188,8 +1202,8 @@
     });
 
     // Clear Completed
-    document.getElementById('clear-btn').addEventListener('click', () => {
-      if(confirm('Are you sure you want to clear all completed actions?')) {
+    document.getElementById('clear-btn').addEventListener('click', async () => {
+      if (await confirmDialog('Clear all completed actions?', 'Clear', true)) {
         mutate(() => { state.tasks = state.tasks.filter(t => !t.completed); }, 'Before clearing completed');
       }
     });
@@ -1259,7 +1273,7 @@
           }, 'Before loading backup');
           showToast('Backup loaded');
         } catch (err) {
-          alert('Invalid backup format. State not changed.');
+          showToast('That file isn\'t a valid backup. Nothing was changed.');
         }
       };
       reader.readAsText(file);
@@ -1325,6 +1339,25 @@
   function closeModals() {
     DOM.editorModal.classList.remove('active');
     DOM.historyModal.classList.remove('active');
+    if (state.confirmResolve) state.confirmResolve(false);
+  }
+
+  // Resolves true for OK, false for Cancel / Escape / backdrop
+  function confirmDialog(message, okLabel = 'OK', danger = false) {
+    const modal = document.getElementById('confirm-modal');
+    const ok = document.getElementById('confirm-ok');
+    document.getElementById('confirm-msg').textContent = message;
+    ok.textContent = okLabel;
+    ok.style.background = danger ? 'var(--danger)' : '';
+    modal.classList.add('active');
+    ok.focus();
+    return new Promise(resolve => {
+      state.confirmResolve = (result) => {
+        state.confirmResolve = null;
+        modal.classList.remove('active');
+        resolve(result);
+      };
+    });
   }
 
   // The click that ends a long press must not close the menu or open the editor
