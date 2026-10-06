@@ -431,7 +431,8 @@
     search: '',
     deletedTaskRef: null,
     undoTimer: null,
-    ctxTargetId: null
+    ctxTargetId: null,
+    ctxOpenedAt: 0
   };
 
   // DOM Elements
@@ -465,29 +466,34 @@
     DOM.hTitle.textContent = storage.getItem('opex_title') || 'Operational Excellence';
     DOM.hSub.textContent = storage.getItem('opex_sub') || 'OpEx Staircase - Go / No-Go Checklist';
 
-    let loaded = JSON.parse(storage.getItem('opex_tasks') || '[]');
-    state.tasks = loaded.map(t => {
-      const duration = t.duration || t.impact || 2;
-      const workload = t.workload || t.effort || 2;
-      return {
-        id: t.id || generateUUID(),
-        title: t.title || 'Untitled',
-        notes: t.notes || '',
-        duration: duration,
-        workload: workload,
-        priority: t.priority || t.urgency || 2,
-        effort: duration + workload,
-        blocked: t.blocked || false,
-        completed: t.completed || false,
-        createdAt: t.createdAt || t.timestamp || Date.now(),
-        updatedAt: t.updatedAt || Date.now(),
-        completedAt: t.completedAt || null,
-        order: t.order || 0
-      };
-    });
+    let loaded = [];
+    try { loaded = JSON.parse(storage.getItem('opex_tasks') || '[]'); } catch (e) {}
+    state.tasks = Array.isArray(loaded) ? loaded.map(normalizeTask) : [];
 
     setupEventListeners();
     renderTasks();
+  }
+
+  // Coerce stored/imported data into a safe, complete task (also migrates v1 fields)
+  function normalizeTask(t) {
+    const level = (v) => [1, 2, 3].includes(Number(v)) ? Number(v) : 2;
+    const duration = level(t.duration || t.impact);
+    const workload = level(t.workload || t.effort);
+    return {
+      id: String(t.id || generateUUID()),
+      title: String(t.title || 'Untitled'),
+      notes: String(t.notes || ''),
+      duration: duration,
+      workload: workload,
+      priority: level(t.priority || t.urgency),
+      effort: duration + workload,
+      blocked: !!t.blocked,
+      completed: !!t.completed,
+      createdAt: Number(t.createdAt || t.timestamp) || Date.now(),
+      updatedAt: Number(t.updatedAt) || Date.now(),
+      completedAt: Number(t.completedAt) || null,
+      order: Number(t.order) || 0
+    };
   }
 
   // Snapshot Management
@@ -562,6 +568,7 @@
     DOM.progFill.style.width = `${pct}%`;
     DOM.progText.textContent = `${pct}% (${completed}/${total})`;
     DOM.progText.setAttribute('aria-label', `Progress: ${pct}%`);
+    DOM.progFill.parentElement.setAttribute('aria-valuenow', pct);
   }
 
   function getLabel(val) {
@@ -576,7 +583,7 @@
     card.dataset.id = task.id;
     card.setAttribute('role', 'listitem');
     card.setAttribute('tabindex', '0');
-    card.setAttribute('aria-label', `Task: ${escapeHTML(task.title)}`);
+    card.setAttribute('aria-label', `Task: ${task.title}`);
 
     let html = `
       <div class="task-top">
@@ -638,7 +645,18 @@
     card.addEventListener('mouseup', cancelLongPress);
     card.addEventListener('mouseleave', cancelLongPress);
 
+    card.addEventListener('contextmenu', (e) => {
+      if (e.target.closest('.interactive-elem')) return;
+      e.preventDefault();
+      showContextMenu(task.id, e);
+    });
+
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target === card) openEditor(task.id);
+    });
+
     card.addEventListener('click', (e) => {
+      if (menuJustOpened()) return;
       const actionBtn = e.target.closest('.interactive-elem');
       if (actionBtn) {
         e.stopPropagation();
@@ -684,9 +702,9 @@
   }
 
   // Group Button Selection Logic
-  function setupGroupSelection(context, groupIds) {
+  function setupGroupSelection(context, groupIds, idPrefix = context) {
     groupIds.forEach(type => {
-      const group = document.getElementById(`${context}-${type}`);
+      const group = document.getElementById(`${idPrefix}-${type}`);
       if(!group) return;
       group.addEventListener('click', (e) => {
         if (e.target.tagName !== 'BUTTON') return;
@@ -731,6 +749,9 @@
     const saveHeader = debounce(() => saveState(), 300);
     DOM.hTitle.addEventListener('input', saveHeader);
     DOM.hSub.addEventListener('input', saveHeader);
+    [DOM.hTitle, DOM.hSub].forEach(el => el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+    }));
 
     // Capture
     setupGroupSelection('capture', ['duration', 'workload', 'priority']);
@@ -773,7 +794,7 @@
     DOM.sortSelect.addEventListener('change', renderTasks);
 
     // Editor Modal
-    setupGroupSelection('editor', ['duration', 'workload', 'priority']);
+    setupGroupSelection('editor', ['duration', 'workload', 'priority'], 'edit');
     document.getElementById('editor-cancel').addEventListener('click', closeModals);
     document.getElementById('editor-save').addEventListener('click', () => {
       const task = state.tasks.find(t => t.id === state.editor.id);
@@ -805,7 +826,7 @@
 
     // Global Clicks (Close Context Menu)
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.context-menu') && DOM.contextMenu.classList.contains('active')) {
+      if (!e.target.closest('.context-menu') && DOM.contextMenu.classList.contains('active') && !menuJustOpened()) {
         closeContextMenu();
       }
     });
@@ -898,11 +919,7 @@
           
           createSnapshot(); // Before changing state
           
-          state.tasks = importedTasks.map(t => ({
-             ...t,
-             id: t.id || generateUUID(),
-             effort: t.effort || ((t.duration || t.impact || 2) + (t.workload || t.effort || 2))
-          }));
+          state.tasks = importedTasks.filter(t => t && typeof t === 'object').map(normalizeTask);
           
           if(imported.title) DOM.hTitle.textContent = imported.title;
           if(imported.subtitle) DOM.hSub.textContent = imported.subtitle;
@@ -976,8 +993,14 @@
     DOM.historyModal.classList.remove('active');
   }
 
+  // The click that ends a long press must not close the menu or open the editor
+  function menuJustOpened() {
+    return Date.now() - state.ctxOpenedAt < 500;
+  }
+
   function showContextMenu(id, event) {
     state.ctxTargetId = id;
+    state.ctxOpenedAt = Date.now();
     
     // Position menu near touch/click or fallback to center
     let x = event.clientX || (event.touches && event.touches[0].clientX) || window.innerWidth/2;
